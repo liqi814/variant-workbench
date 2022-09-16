@@ -1,6 +1,6 @@
 # variant-workbench
 
-- Notebook `loading_database_VWB_220831.scala.ipynb` contains codes for loading databases below:
+- Notebook `loading_database_VWB_220831.scala.ipynb` contains codes for loading databases below,
   - HGMD
   - regSNP-intron
   - dbscsnv
