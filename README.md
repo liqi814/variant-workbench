@@ -25,14 +25,7 @@
 - Notebook `loading_database_VWB_221005.scala.ipynb` contains
   - lastest HGMD database (2022Q3)
 - Notebook `VWB landscape paper final.ipynb` is for KF vs HGMD (2022Q3) analysis with inheritance infromation from GenCC
-	Definartion of denovo variants 	Definartion of hom variants 
-HGMD variants class	DM, DM ?	DM, DM ?
-AF (topmed, gnomad_g, gnomad_e)	< 0.0001	< 0.0001
-is_proband	TRUE	TRUE
-is_multi_allelic	FALSE	FALSE
-zygosity	not WT	HOM
-mother_zygosity	WT	HET
-father_zygosity	WT	HET![image](https://user-images.githubusercontent.com/44414391/199518313-e14bc7d3-7f0b-457b-b25a-5efb84f6010c.png)
+![image](https://user-images.githubusercontent.com/44414391/199518313-e14bc7d3-7f0b-457b-b25a-5efb84f6010c.png)
 
 
 Details are documented in a notion page [here](https://www.notion.so/d3b/f958b89d2fc343a7bcfa41e4dfaa0a90?v=951ee808eb714a7fbf3239397941f648).
