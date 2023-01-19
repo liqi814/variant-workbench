@@ -18,10 +18,15 @@
   - InterVar
   - COSMIC
 - Notebook `loading_database_VWB_221005.scala.ipynb` contains
-  - lastest HGMD database (2022Q3)
+  - HGMD database (2022Q3)
     1. hg38_HGMD2022Q3_gene_lite.txt
     2. hg38_HGMD2022Q3_gene_sorted.txt
     3. hg38_HGMD2022Q3_variant.txt
+- Notebook `loading_database_VWB_230119.scala.ipynb` contains
+  - lastest HGMD database (2022Q4)
+    1. hg38_HGMD2022Q4_gene_lite.txt
+    2. hg38_HGMD2022Q4_gene_sorted.txt
+    3. hg38_HGMD2022Q4_variant.txt
 - Notebook `loading_database_VWB_221005.scala.ipynb` contains
   - lastest HGMD database (2022Q3)
 - Notebook `VWB landscape paper final.ipynb` is for KF vs HGMD (2022Q3) analysis with inheritance infromation from GenCC
