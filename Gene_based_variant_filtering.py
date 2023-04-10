@@ -45,7 +45,11 @@ parser.add_argument('--dpc_u',
 parser.add_argument('--known_variants_l', nargs='+', default=['ClinVar', 'HGMD'],
                     help='known variant databases used, default is ClinVar and HGMD')
 parser.add_argument('--aaf',
-        help='alternative allele frequency threshold')
+        help='alternative allele fraction threshold')
+parser.add_argument('--output_basename',
+        help='Recommand use the task ID in the url above as output file prefix. \
+        For example 598b5c92-cb1d-49b2-8030-e1aa3e9b9fde is the task ID from \
+	    https://cavatica.sbgenomics.com/u/yiran/variant-workbench-testing/tasks/598b5c92-cb1d-49b2-8030-e1aa3e9b9fde/#set-input-data')
 
 args = parser.parse_args()
 
@@ -65,6 +69,7 @@ dpc_l = args.dpc_l
 dpc_u = args.dpc_u
 known_variants_l = args.known_variants_l
 aaf = args.aaf
+output_basename = args.output_basename
 
 # get a list of interested gene and remove unwanted strings in the end of each gene
 gene_symbols_trunc = spark.read.option("header", False).text(gene_text_path)
@@ -72,7 +77,7 @@ gene_symbols_trunc = list(gene_symbols_trunc.toPandas()['value'])
 gene_symbols_trunc = [gl.replace('\xa0', '').replace('\n', '') for gl in gene_symbols_trunc]
 
 # customized tables loading
-hg38_HGMD2022Q4_variant = spark.read.parquet(args.hgmd)
+hg38_HGMD_variant = spark.read.parquet(args.hgmd)
 dbnsfp_annovar = spark.read.parquet(args.dbnsfp)
 clinvar = spark.read.parquet(args.clinvar)
 consequences = spark.read.parquet(args.consequences)
@@ -90,7 +95,7 @@ studies = spark.read.parquet(args.studies)
 
 # gene based variant filtering
 def gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l, dpc_u,
-		            known_variants_l, aaf, hg38_HGMD2022Q4_variant, dbnsfp_annovar, clinvar, 
+		            known_variants_l, aaf, hg38_HGMD_variant, dbnsfp_annovar, clinvar, 
 	                consequences, variants, diagnoses, phenotypes, occurrences):
     #  Actual running step, generating table t_output
     cond = ['chromosome', 'start', 'reference', 'alternate']
@@ -156,7 +161,7 @@ def gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l,
 
     # Table HGMD, restricted to those seen in variants and labeled as DM or DM?
     c_hgmd = ['HGMDID', 'variant_class']
-    t_hgmd = hg38_HGMD2022Q4_variant \
+    t_hgmd = hg38_HGMD_variant \
         .withColumnRenamed('id', 'HGMDID') \
         .where(F.col('symbol').isin(gene_symbols_trunc) \
                & F.col('variant_class').startswith('DM')) \
@@ -231,18 +236,13 @@ def gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l,
 
 
 # define output name and write table t_output
-def write_output(t_output, gene_symbols_trunc, 
-		        study_id_list, studies):
-    short_code_id = list(studies \
-                         .where(F.col('kf_id').isin(study_id_list)) \
-                         .select('short_code').toPandas()['short_code'])
+def write_output(t_output, output_basename):
     Date = list(spark.sql("select current_date()") \
                 .withColumn("current_date()", F.col("current_date()").cast("string")) \
                 .toPandas()['current_date()'])
-    output_filename= "_".join(Date + short_code_id + gene_symbols_trunc) +".tsv"
+    output_filename= "_".join(Date + output_basename) +".tsv"
     t_output.toPandas() \
         .to_csv(output_filename, sep="\t", index=False, na_rep='-')
-    # print("/sbgenomics/output-files/" + "_".join(Date + short_code_id + gene_symbols_trunc) +".tsv")
 
 if args.hgmd is None:
 	print("Missing hgmd parquet file", file=sys.stderr)
@@ -268,7 +268,8 @@ if args.phenotypes is None:
 if args.studies is None:
 	print("Missing studies parquet file", file=sys.stderr)
 	exit(1)
+	
 t_output = gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l, dpc_u,
-		                known_variants_l, aaf, hg38_HGMD2022Q4_variant, dbnsfp_annovar, clinvar, 
+		                known_variants_l, aaf, hg38_HGMD_variant, dbnsfp_annovar, clinvar, 
 	                    consequences, variants, diagnoses, phenotypes, occurrences)
-write_output(t_output, gene_symbols_trunc, study_id_list, studies)
+write_output(t_output, output_basename)
