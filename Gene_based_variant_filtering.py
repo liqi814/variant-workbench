@@ -14,9 +14,9 @@ parser = argparse.ArgumentParser(
     formatter_class=RawTextHelpFormatter)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-g', '--gene_list_file',
+parser.add_argument('-g', '--gene_list_file', required=True,
                     help='A text file that contains the list of gene. Each row in the text file should correspond to one gene. No header required.')
-parser.add_argument('-s', '--study_ids', nargs='+', default=[],
+parser.add_argument('-s', '--study_ids', nargs='+', default=[], required=True,
                     help='list of study to look for')
 parser.add_argument('--hgmd',
         help='HGMD variant parquet file dir')
@@ -36,17 +36,17 @@ parser.add_argument('--occurrences',
         help='occurrences parquet file dir')
 parser.add_argument('--studies',
         help='studies parquet file dir')
-parser.add_argument('--maf',
+parser.add_argument('--maf', default=0.0001,
         help='gnomAD and TOPMed max allele frequency')
-parser.add_argument('--dpc_l',
+parser.add_argument('--dpc_l', default=0.5,
         help='damage predict count lower threshold')
-parser.add_argument('--dpc_u',
+parser.add_argument('--dpc_u', default=1,
         help='damage predict count upper threshold')
 parser.add_argument('--known_variants_l', nargs='+', default=['ClinVar', 'HGMD'],
                     help='known variant databases used, default is ClinVar and HGMD')
-parser.add_argument('--aaf',
+parser.add_argument('--aaf', default=0.2,
         help='alternative allele fraction threshold')
-parser.add_argument('--output_basename',
+parser.add_argument('--output_basename', default="gene-based-variant-filtering",
         help='Recommand use the task ID in the url above as output file prefix. \
         For example 598b5c92-cb1d-49b2-8030-e1aa3e9b9fde is the task ID from \
 	    https://cavatica.sbgenomics.com/u/yiran/variant-workbench-testing/tasks/598b5c92-cb1d-49b2-8030-e1aa3e9b9fde/#set-input-data')
