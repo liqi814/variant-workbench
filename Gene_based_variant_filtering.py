@@ -5,7 +5,7 @@ from pyspark.sql import DataFrame, functions as F
 from pyspark.sql.types import DoubleType
 import glow
 import sys
-# from functools import reduce
+from functools import reduce
 
 parser = argparse.ArgumentParser(
     description='Script of gene based variant filtering. \n\
@@ -34,8 +34,6 @@ parser.add_argument('--phenotypes',
         help='phenotypes parquet file dir')
 parser.add_argument('--occurrences',
         help='occurrences parquet file dir')
-parser.add_argument('--studies',
-        help='studies parquet file dir')
 parser.add_argument('--maf', default=0.0001,
         help='gnomAD and TOPMed max allele frequency')
 parser.add_argument('--dpc_l', default=0.5,
@@ -46,7 +44,7 @@ parser.add_argument('--known_variants_l', nargs='+', default=['ClinVar', 'HGMD']
                     help='known variant databases used, default is ClinVar and HGMD')
 parser.add_argument('--aaf', default=0.2,
         help='alternative allele fraction threshold')
-parser.add_argument('--output_basename', default="gene-based-variant-filtering",
+parser.add_argument('--output_basename', default='gene-based-variant-filtering',
         help='Recommand use the task ID in the url above as output file prefix. \
         For example 598b5c92-cb1d-49b2-8030-e1aa3e9b9fde is the task ID from \
 	    https://cavatica.sbgenomics.com/u/yiran/variant-workbench-testing/tasks/598b5c92-cb1d-49b2-8030-e1aa3e9b9fde/#set-input-data')
@@ -84,14 +82,13 @@ consequences = spark.read.parquet(args.consequences)
 variants = spark.read.parquet(args.variants)
 diagnoses = spark.read.parquet(args.diagnoses)
 phenotypes = spark.read.parquet(args.phenotypes)
-occurrences = spark.read.parquet(args.occurrences)
-studies = spark.read.parquet(args.studies)
+occurrences_parent_path = spark.read.parquet(args.occurrences)
 
-## read multi studies
-# occ_dict = []
-# for s_id in study_id_list:
-#     occ_dict.append(spark.read.parquet('/sbgenomics/project-files/occurrences_Yiran/occurrences_*/study_id=' + s_id))
-# occurrences = reduce(DataFrame.unionAll, occ_dict)
+# read multi studies
+occ_dict = []
+for s_id in study_id_list:
+    occ_dict.append(spark.read.parquet(occurrences_parent_path + '/occurrences_*/study_id=' + s_id))
+occurrences = reduce(DataFrame.unionAll, occ_dict)
 
 # gene based variant filtering
 def gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l, dpc_u,
@@ -240,9 +237,9 @@ def write_output(t_output, output_basename):
     Date = list(spark.sql("select current_date()") \
                 .withColumn("current_date()", F.col("current_date()").cast("string")) \
                 .toPandas()['current_date()'])
-    output_filename= "_".join(Date + output_basename) +".tsv"
+    output_filename= "_".join(Date + output_basename) +".tsv.gz"
     t_output.toPandas() \
-        .to_csv(output_filename, sep="\t", index=False, na_rep='-')
+        .to_csv(output_filename, sep="\t", index=False, na_rep='-', compression='gzip')
 
 if args.hgmd is None:
 	print("Missing hgmd parquet file", file=sys.stderr)
@@ -264,9 +261,6 @@ if args.diagnoses is None:
 	exit(1)
 if args.phenotypes is None:
 	print("Missing phenotypes parquet file", file=sys.stderr)
-	exit(1)
-if args.studies is None:
-	print("Missing studies parquet file", file=sys.stderr)
 	exit(1)
 	
 t_output = gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l, dpc_u,
