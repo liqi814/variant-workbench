@@ -68,6 +68,7 @@ dpc_u = args.dpc_u
 known_variants_l = args.known_variants_l
 aaf = args.aaf
 output_basename = args.output_basename
+occurrences_parent_path = args.occurrences
 
 # get a list of interested gene and remove unwanted strings in the end of each gene
 gene_symbols_trunc = spark.read.option("header", False).text(gene_text_path)
@@ -82,7 +83,6 @@ consequences = spark.read.parquet(args.consequences)
 variants = spark.read.parquet(args.variants)
 diagnoses = spark.read.parquet(args.diagnoses)
 phenotypes = spark.read.parquet(args.phenotypes)
-occurrences_parent_path = spark.read.parquet(args.occurrences)
 
 # read multi studies
 occ_dict = []
@@ -237,7 +237,7 @@ def write_output(t_output, output_basename):
     Date = list(spark.sql("select current_date()") \
                 .withColumn("current_date()", F.col("current_date()").cast("string")) \
                 .toPandas()['current_date()'])
-    output_filename= "_".join(Date + output_basename) +".tsv.gz"
+    output_filename= "_".join(Date) + "_" + output_basename +".tsv.gz"
     t_output.toPandas() \
         .to_csv(output_filename, sep="\t", index=False, na_rep='-', compression='gzip')
 
