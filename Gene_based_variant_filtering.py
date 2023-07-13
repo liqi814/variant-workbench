@@ -5,7 +5,6 @@ from pyspark.sql import DataFrame, functions as F
 from pyspark.sql.types import DoubleType
 import glow
 import sys
-from functools import reduce
 
 parser = argparse.ArgumentParser(
     description='Script of gene based variant filtering. \n\
@@ -68,7 +67,6 @@ dpc_u = args.dpc_u
 known_variants_l = args.known_variants_l
 aaf = args.aaf
 output_basename = args.output_basename
-occurrences_parent_path = args.occurrences
 
 # get a list of interested gene and remove unwanted strings in the end of each gene
 gene_symbols_trunc = spark.read.option("header", False).text(gene_text_path)
@@ -83,12 +81,13 @@ consequences = spark.read.parquet(args.consequences)
 variants = spark.read.parquet(args.variants)
 diagnoses = spark.read.parquet(args.diagnoses)
 phenotypes = spark.read.parquet(args.phenotypes)
+occurrences = spark.read.parquet(args.occurrences)
 
 # read multi studies
-occ_dict = []
-for s_id in study_id_list:
-    occ_dict.append(spark.read.parquet(occurrences_parent_path + '/occurrences_*/study_id=' + s_id))
-occurrences = reduce(DataFrame.unionAll, occ_dict)
+# occ_dict = []
+# for s_id in study_id_list:
+#     occ_dict.append(spark.read.parquet(occurrences_parent_path + '/occurrences_*/study_id=' + s_id))
+# occurrences = reduce(DataFrame.unionAll, occ_dict)
 
 # gene based variant filtering
 def gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l, dpc_u,
@@ -130,12 +129,10 @@ def gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l,
                                F.col('gnomad_genomes_3_1_1')['af'])) \
         .where((F.size(F.array_intersect(F.col('studies'), F.lit(F.array(*map(F.lit, study_id_list))))) > 0) & \
                F.col('chromosome').isin(chr_list)) \
-        .select(cond + c_vrt_unnested + [F.col(nc + '.' + c).alias(nc + '_' + c)
-                                         for nc in c_vrt_nested
-                                         for c in variants.select(nc + '.*').columns])
+        .select(*[F.expr(f"{nc}.af").alias(f"{nc}_af") for nc in c_vrt_nested] + cond + c_vrt_unnested)
 
     # Table ClinVar, restricted to those seen in variants and labeled as pathogenic/likely_pathogenic
-    c_clv = ['VariationID', 'clin_sig']
+    c_clv = ['VariationID', 'clin_sig', 'conditions']
     t_clv = clinvar \
         .withColumnRenamed('name', 'VariationID') \
         .where(F.split(F.split(F.col('geneinfo'), '\\|')[0], ':')[0].isin(gene_symbols_trunc) \
@@ -157,7 +154,7 @@ def gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l,
     #     .select(cond + c_clv)
 
     # Table HGMD, restricted to those seen in variants and labeled as DM or DM?
-    c_hgmd = ['HGMDID', 'variant_class']
+    c_hgmd = ['HGMDID', 'variant_class', 'phen']
     t_hgmd = hg38_HGMD_variant \
         .withColumnRenamed('id', 'HGMDID') \
         .where(F.col('symbol').isin(gene_symbols_trunc) \
@@ -194,13 +191,12 @@ def gene_based_filt(gene_symbols_trunc, study_id_list, gnomAD_TOPMed_maf, dpc_l,
 
     # Table occurrences, restricted to input genes, chromosomes of those genes, input study IDs, and occurrences where alternate allele
     # is present, plus adjusted calls based on alternative allele fraction in the total sequencing depth
-    c_ocr = ['ad', 'dp', 'calls', 'filter', 'is_lo_conf_denovo', 'is_hi_conf_denovo', 'is_proband',
-             'affected_status', 'gender', \
-             'biospecimen_id', 'participant_id', 'mother_id', 'father_id', 'family_id']
-    t_ocr = occurrences \
-        .withColumn('adjusted_calls',
-                    F.when(F.col('ad')[1] / (F.col('ad')[0] + F.col('ad')[1]) < aaf, F.array(F.lit(0), F.lit(0))) \
-                    .otherwise(F.col('calls'))) \
+    c_ocr = ['ad', 'dp', 'variant_allele_fraction', 'calls', 'adjusted_calls', 'filter', 'is_lo_conf_denovo', 'is_hi_conf_denovo',
+	     'is_proband', 'affected_status', 'gender',
+	     'biospecimen_id', 'participant_id', 'mother_id', 'father_id', 'family_id']
+    t_ocr = occurrences.withColumn('variant_allele_fraction', F.col('ad')[1] / (F.col('ad')[0] + F.col('ad')[1])) \
+        .withColumn('adjusted_calls', F.when(F.col('variant_allele_fraction') < aaf, F.array(F.lit(0), F.lit(0)))
+                                      .otherwise(F.col('calls'))) \
         .where(F.col('chromosome').isin(chr_list) \
                & (F.col('is_multi_allelic') == 'false') \
                & (F.col('has_alt') == 1) \
